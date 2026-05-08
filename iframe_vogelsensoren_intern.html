@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vogelsensoren</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#CF0C12',
+            'gray-border': '#C6C6C6',
+          },
+          spacing: {
+            '2': '2px', '4': '4px', '5': '5px', '6': '6px', '8': '8px',
+            '10': '10px', '12': '12px', '15': '15px', '16': '16px',
+            '20': '20px', '24': '24px', '25': '25px', '30': '30px',
+            '40': '40px',
+          },
+          fontSize: {
+            '10': '10px', '12': '12px', '14': '14px', '16': '16px',
+            '20': '20px', '24': '24px', '28': '28px',
+          },
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fff;
+      overflow-x: hidden;
+    }
+
+    /* Page transition system */
+    .vs_page {
+      display: none;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .vs_page.active {
+      display: block;
+    }
+    .translate-x-100p { transform: translateX(100%); }
+    .-translate-x-100p { transform: translateX(-100%); }
+
+    /* Active time / chart button state */
+    .vs-time-btn.active,
+    .vs-chart-btn.active {
+      border-color: #CF0C12 !important;
+      background-color: #CF0C12 !important;
+      color: #fff !important;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MAIN PANEL CONTAINER
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="vogelsensoren_panel" class="h-full w-full overflow-y-auto px-20 pt-20 pb-15 flex flex-col gap-20">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h3 id="vs_panel_title" class="text-20 border-b-2 border-primary mb-0">Vogelsensoren</h3>
+      <span id="vs_panel_subtitle" class="text-12 text-[#777777]">Alle sensoren</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ PAGE 1: OVERVIEW ═══════════ -->
+  <div id="vs_overview" class="vs_page active">
+
+    <!-- Time Period Selector -->
+    <div class="flex gap-8 mb-16">
+      <button onclick="vsSetTimePeriod(this, 'dag')" type="button"
+        class="vs-time-btn flex-1 py-8 px-12 text-14 font-medium rounded-md border border-[#C6C6C6] hover:border-primary transition-colors duration-200">
+        Dag
+      </button>
+      <button onclick="vsSetTimePeriod(this, 'week')" type="button"
+        class="vs-time-btn flex-1 py-8 px-12 text-14 font-medium rounded-md border border-[#C6C6C6] hover:border-primary transition-colors duration-200">
+        Week
+      </button>
+      <button onclick="vsSetTimePeriod(this, 'maand')" type="button"
+        class="vs-time-btn active flex-1 py-8 px-12 text-14 font-medium rounded-md border border-primary bg-primary text-white transition-colors duration-200">
+        Maand
+      </button>
+      <button onclick="vsSetTimePeriod(this, 'jaar')" type="button"
+        class="vs-time-btn flex-1 py-8 px-12 text-14 font-medium rounded-md border border-[#C6C6C6] hover:border-primary transition-colors duration-200">
+        Jaar
+      </button>
+    </div>
+
+    <!-- Top 5 Bird Species -->
+    <h4 class="text-16 font-semibold mb-12 border-b border-[#C6C6C6] pb-8">Top 5 gedetecteerde soorten</h4>
+    <div id="vs_top5_list" class="flex flex-col gap-10 mb-20"></div>
+
+    <!-- Statistics Boxes -->
+    <div class="flex flex-col gap-12">
+      <button onclick="vsShowCategoryList('all')" type="button"
+        class="group flex justify-between items-center p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md w-full text-left hover:shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-shadow duration-300">
+        <div class="flex flex-col gap-4">
+          <span class="text-12 text-[#777777]">Totaal aantal soorten gedetecteerd</span>
+          <div class="flex items-baseline gap-8">
+            <span id="vs_stat_total_species" class="text-24 font-semibold">0</span>
+            <span class="text-14 text-[#777777]">soorten</span>
+            <span class="text-12 text-[#777777]">(<span id="vs_stat_total_detections">0</span> detecties)</span>
+          </div>
+        </div>
+        <i class="fa-solid fa-chevron-right text-16 text-[#777777] group-hover:text-primary transition-colors"></i>
+      </button>
+
+      <button onclick="vsShowCategoryList('rode_lijst')" type="button"
+        class="group flex justify-between items-center p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md w-full text-left hover:shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-shadow duration-300">
+        <div class="flex flex-col gap-4">
+          <span class="text-12 text-[#777777]">Rode Lijst soorten</span>
+          <div class="flex items-baseline gap-8">
+            <span id="vs_stat_red_species" class="text-24 font-semibold text-[#CF0C12]">0</span>
+            <span class="text-14 text-[#777777]">soorten</span>
+          </div>
+        </div>
+        <i class="fa-solid fa-chevron-right text-16 text-[#777777] group-hover:text-primary transition-colors"></i>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ PAGE 2: CATEGORY LIST ═══════════ -->
+  <div id="vs_category_list" class="vs_page translate-x-100p">
+
+    <div class="mb-16">
+      <button onclick="vsShowPage({pageId: 'vs_overview', pageNumber: 1})" type="button"
+        class="group flex justify-between items-center p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md w-full text-left hover:shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-shadow duration-300">
+        <span class="font-semibold">Terug naar overzicht</span>
+        <i class="fa-solid fa-chevron-left text-16 text-[#777777] group-hover:text-primary transition-colors relative mr-6 group-hover:-left-4 transition-all duration-300"></i>
+      </button>
+    </div>
+
+    <h4 id="vs_category_title" class="text-16 font-semibold mb-4 border-b border-[#C6C6C6] pb-8">Alle gedetecteerde soorten</h4>
+    <span id="vs_category_subtitle" class="text-12 text-[#777777] mb-12 block"></span>
+
+    <div id="vs_category_species_list" class="flex flex-col gap-10"></div>
+
+  </div>
+
+  <!-- ═══════════ PAGE 3: BIRD DETAIL ═══════════ -->
+  <div id="vs_bird_detail" class="vs_page translate-x-100p">
+
+    <div class="mb-16">
+      <button onclick="vsGoBackFromDetail()" id="vs_detail_back_btn" type="button"
+        class="group flex justify-between items-center p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md w-full text-left hover:shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-shadow duration-300">
+        <span id="vs_detail_back_label" class="font-semibold">Terug naar soortenlijst</span>
+        <i class="fa-solid fa-chevron-left text-16 text-[#777777] group-hover:text-primary transition-colors relative mr-6 group-hover:-left-4 transition-all duration-300"></i>
+      </button>
+    </div>
+
+    <div class="mb-16">
+      <h4 id="vs_detail_name" class="text-20 font-semibold border-b-2 border-primary pb-4 mb-4"></h4>
+      <span id="vs_detail_scientific_name" class="text-14 text-[#777777] italic"></span>
+    </div>
+
+    <div class="mb-16">
+      <img id="vs_detail_image" src="" alt=""
+        class="w-full aspect-square object-cover rounded-md shadow-[0_0_8px_rgba(0,0,0,0.15)]" />
+      <div id="vs_image_attribution" class="text-10 text-[#999] mt-6" style="display:none;">
+        <i class="fa-solid fa-camera"></i>
+        <span id="vs_image_credit"></span>
+      </div>
+    </div>
+
+    <div class="p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md mb-16">
+      <span class="text-12 text-[#777777]">Gedetecteerd in afgelopen <span id="vs_detail_period_label">maand</span></span>
+      <div class="text-28 font-semibold" id="vs_detail_detection_count">0</div>
+    </div>
+
+    <div class="p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md mb-16">
+      <h5 class="text-14 font-semibold mb-8 border-b border-[#C6C6C6] pb-4">Beschrijving</h5>
+      <p id="vs_detail_description" class="text-14 leading-relaxed"></p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-12 mb-16">
+      <div class="p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md">
+        <span class="text-12 text-[#777777]">Habitat</span>
+        <div id="vs_detail_habitat" class="text-14 font-medium mt-4"></div>
+      </div>
+      <div class="p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md">
+        <span class="text-12 text-[#777777]">Dieet</span>
+        <div id="vs_detail_diet" class="text-14 font-medium mt-4"></div>
+      </div>
+      <div class="p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md">
+        <span class="text-12 text-[#777777]">Grootte</span>
+        <div id="vs_detail_size" class="text-14 font-medium mt-4"></div>
+      </div>
+      <div class="p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md">
+        <span class="text-12 text-[#777777]">Beschermingsstatus</span>
+        <div id="vs_detail_status" class="text-14 font-medium mt-4"></div>
+      </div>
+    </div>
+
+    <button onclick="vsPlayBirdSound()" id="vs_bird_sound_btn" type="button"
+      class="w-full py-12 px-16 bg-primary text-white rounded-md font-medium flex items-center justify-center gap-8 hover:bg-[#a30a0e] transition-colors duration-200">
+      <i id="vs_bird_sound_icon" class="fa-solid fa-volume-high"></i>
+      <span id="vs_bird_sound_label">Vogelroep afspelen</span>
+    </button>
+    <audio id="vs_bird_audio" preload="none"></audio>
+    <div id="vs_bird_sound_attribution" class="text-10 text-[#999] mt-6 mb-16">
+      <i class="fa-solid fa-circle-info"></i>
+      <span id="vs_bird_sound_credit"></span>
+    </div>
+
+    <a id="vs_detail_external_link" href="#" target="_blank"
+      class="flex items-center justify-between p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md mb-20 hover:shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-shadow duration-300 text-[#13499C] font-medium">
+      <span>Meer informatie op Vogelrijkestad</span>
+      <i class="fa-solid fa-arrow-up-right-from-square text-14"></i>
+    </a>
+
+    <div class="mb-16">
+      <h5 class="text-14 font-semibold mb-12 border-b border-[#C6C6C6] pb-4">Detectiehistorie</h5>
+      <div class="flex gap-8 mb-12">
+        <button onclick="vsSetChartDuration(this, 'dagen')" type="button"
+          class="vs-chart-btn flex-1 py-6 px-10 text-12 font-medium rounded-md border border-[#C6C6C6] hover:border-primary transition-colors duration-200">
+          Dagen
+        </button>
+        <button onclick="vsSetChartDuration(this, 'weken')" type="button"
+          class="vs-chart-btn flex-1 py-6 px-10 text-12 font-medium rounded-md border border-[#C6C6C6] hover:border-primary transition-colors duration-200">
+          Weken
+        </button>
+        <button onclick="vsSetChartDuration(this, 'maanden')" type="button"
+          class="vs-chart-btn active flex-1 py-6 px-10 text-12 font-medium rounded-md border border-primary bg-primary text-white transition-colors duration-200">
+          Maanden
+        </button>
+      </div>
+      <div id="vs_detail_chart" class="w-full h-[200px]"></div>
+    </div>
+
+    <div class="p-16 shadow-[0_0_4px_rgba(0,0,0,0.15)] rounded-md">
+      <span class="text-12 text-[#777777]">Databron</span>
+      <div id="vs_detail_datasource" class="text-14 font-medium mt-4">Alle Sensoren</div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<script src="vogelsensoren-functions.js"></script>
+
+</body>
+</html>
