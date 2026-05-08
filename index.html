@@ -1,1 +1,224 @@
-<HTML><BODY>test</BODY></HTML>
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Map Event Viewer</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+    }
+
+    #container {
+      padding: 16px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+    }
+
+    .label {
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    pre {
+      background: #1e1e1e;
+      color: #dcdcdc;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+
+    .empty {
+      color: #666;
+      font-style: italic;
+    }
+
+
+    /* buttons */
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .button-group button {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+
+      background: #f8fafc;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 10px 12px;
+
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .button-group button:hover {
+      background: #e6f2ff;
+      border-color: #0078d4;
+    }
+
+    .button-group button:active {
+      transform: scale(0.98);
+    }
+
+    .btn-sub {
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h1>Template voor embedded iframe-tool</h1>
+
+    <p>
+      Dit bestand is bedoeld als voorbeeld voor externe partijen die hun tool in een iframe
+      laten embedden in de hoofdapplicatie. De communicatie met de parent-pagina verloopt
+      uitsluitend via <code>window.postMessage()</code> met JSON-berichten.
+    </p>
+
+    <p>
+      Dit template laat zien hoe je:
+    </p>
+    <ul>
+      <li>toegestane origin-waarden controleert</li>
+      <li>alleen expliciet toegestane functies accepteert</li>
+      <li>JSON-berichten valideert</li>
+      <li>veilig terugpraat naar de parent</li>
+    </ul>
+
+
+    Berichten vanaf parent komen binnen:</strong>
+    <ul>
+      <li>Na kaart item onclick event (met <code>sendToIframe()</code> functionaliteit)</li>
+      <li>In dit frame uitgelezen onder <code>window.addEventListener("message")</code></li>
+      <li><code>event</code> bevat het onclick event</li>
+      <li><code>event.data</code> bevat de aangeklikte itemgegevens</li>
+    </ul>
+
+    <div class="card">
+      <div class="label">Laatste event:</div>
+      <div id="status" class="empty">Nog geen data ontvangen...</div>
+    </div>
+
+    <div class="card">
+      <div class="label">JSON payload:</div>
+      <pre id="jsonOutput">{}</pre>
+    </div>
+
+    <div class="card">
+      <div class="label">Toegestane functies naar de parent window:</div>
+
+      <div class="button-group">
+        <button onclick="window.parentCallFunction('SET_CAMERA', { center: [4.7486, 52.6324], zoom: 14, pitch: 0, bearing: 0 })">
+          Set camera
+          <span class="btn-sub">naar gps locatie</span>
+        </button>
+
+        <button onclick="window.parentCallFunction('SET_SIDEPANEL_SIZE', { size: 'full' })">
+          Sidepanel grootte
+          <span class="btn-sub">third / half / full / fullsize</span>
+        </button>
+
+        <button onclick="window.parentCallFunction('TOGGLE_MAINPANEL_SIZE', {})">
+          Toggle mainpanel
+          <span class="btn-sub">in/uitklappen</span>
+        </button>
+
+        <button onclick="window.parentCallFunction('TOGGLE_3D', { dimensions: '3D' })">
+          Toggle 2D / 3D
+          <span class="btn-sub">wel/geen 3D gebouwen weergeven</span>
+        </button>
+
+        <button onclick="window.parentCallFunction('TAB_FOCUS', { tabButtonId: 'vogeltelsensoren-sidepanel-btn', tabPanel: 'vogeltelsensoren_panel' })">
+          Activeer tab
+          <span class="btn-sub">sidepanel focus</span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    ////
+    // Receive messages from parent window
+    ////
+
+    const ALLOWED_ORIGINS = [
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "https://alkmaar.digitaletweeling.nl",
+        "https://dtp-alkmaar-dev.azurewebsites.net",
+        "https://dtp-alkmaar-accept.azurewebsites.net",
+        "https://dtp-alkmaar.azurewebsites.net"
+    ];
+
+    const statusEl = document.getElementById("status");
+    const jsonEl = document.getElementById("jsonOutput");
+
+    function renderJson(data) {
+      try {
+        jsonEl.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        jsonEl.textContent = "Fout bij renderen JSON";
+      }
+    }
+
+    window.addEventListener("message", function (event) {
+    
+        // Important to keep the check for the origin of the message!
+        if (!ALLOWED_ORIGINS.includes(event.origin)) {
+            console.warn("[iframe] Blocked message from:", event.origin);
+            return;
+        }
+
+        // event contains the entire click event. event.data only the content of the item clicked.
+        const data = event.data;
+
+        // Update status, just for displaying recent changes
+        statusEl.textContent = "Data ontvangen om " + new Date().toLocaleTimeString();
+
+        // Render JSON
+        renderJson(data);
+    });
+
+
+    ////
+    // send messages to parent (call set of functions)
+    ////
+    
+    const PARENT_ORIGIN = "http://localhost:5000";  // TODO production "https://alkmaar.digitaletweeling.nl, or function to test on digitaletweeling.nl"
+
+    function parentCallFunction(action, functionArguments) {
+        const message = {
+            action: action,
+            arguments: functionArguments
+        }
+
+        window.parent.postMessage(message, PARENT_ORIGIN);
+        console.log("[iframe] Sent message to parent:", message);
+    }
+
+
+
+  </script>
+</body>
+</html>
